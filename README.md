@@ -32,8 +32,9 @@ The code is still work in progress, but the following tutorials should get one s
 The video below shows the same with time-varying known pixels mask:
 
 <a href="http://www.youtube.com/watch?feature=player_embedded&v=rBTFTZCZKZE
-" ><img src="http://img.youtube.com/vi/rBTFTZCZKZE/1.jpg"
+" ><img src="http://img.youtube.com/vi/rBTFTZCZKZE/0.jpg"
 alt="IMAGE ALT TEXT HERE" width="320" /></a>
+
 ## Installation:
 
 Clone or download the repository. Create and activate a fresh Anaconda Python 3.6 virtual environment and type "pip install -r requirements.txt". NOTE: the code may also work on some other Tensorflow 1 version, but requirements.txt specifies a combination of packages with which we have tested everything.
@@ -49,4 +50,5 @@ If you use DRMM, please cite:
   author={H{\"a}m{\"a}l{\"a}inen, Perttu and Solin, Arno},
   journal={arXiv preprint arXiv:2006.12063},
   year={2020}
-}'''
+}
+```
