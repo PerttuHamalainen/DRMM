@@ -101,16 +101,15 @@ sess=tf.Session()
 tf.set_random_seed(int(time.time()))
 
 '''
-The hierarchical model has DRMM blocks that model sequence segments of 3 items while decreasing the modeled segment length through striding
+The hierarchical model has DRMM blocks that model sequence segments of 7 items while decreasing the modeled segment length through striding
 As the modeled data grows more complex on each level of the hierarchy, we gradually increase the DRMM layer counts.
-The last DRMM block models the joint distribution of the latents produced by the segment models.
+The last DRMM block models the joint distribution of all the segments.
 '''
 model=DRMMBlockHierarchy(sess,
                          inputs=dataStream(dataType="continuous",shape=[None,T,dataDim],useGaussianPrior=True,useBoxConstraints=True),
                          blockDefs=[
                          {"nClasses":256,"nLayers":2,"kernelSize":7,"stride":2},   #input seq. length 32, output length 16
                          {"nClasses":256,"nLayers":3,"kernelSize":7,"stride":2},   #in 16, out 8
-                         #{"nClasses":128,"nLayers":4,"kernelSize":5,"stride":2},   #in 8, out 4
                          ],
                          lastBlockClasses=256,
                          lastBlockLayers=4,

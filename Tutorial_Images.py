@@ -87,7 +87,7 @@ tf.set_random_seed(int(time.time()))
 '''
 The hierarchical model has DRMM blocks that model 3x3 pixel patches, while decreasing the modeled image resolution through striding
 As the modeled data grows more complex on each level of the hierarchy, we gradually increase the DRMM layer counts.
-The last DRMM block models the joint distribution of the latents produced by the segment models.
+The last DRMM block models the joint distribution of the latents produced by the patch models.
 '''
 model=DRMMBlockHierarchy(sess,
                          inputs=dataStream("continuous",shape=[None,RESO,RESO,CHANNELS]),
