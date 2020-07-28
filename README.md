@@ -1,7 +1,7 @@
 # Deep Residual Mixture Models
 ![Visualizing DRMM samples and density estimates with 2D data](./images/toydata.png)
 
-Code for the paper [Deep Residual Mixture Models](https://arxiv.org/abs/2006.12063). DRMM is a new deep generative model that tha allows uniquely versatile sample conditioning. Basically, one can **train once, then infer anything from anything**. More precisely, one can sample any variable(s) conditioned on any other variable(s) and/or additional priors and constraints. For example, the model can do:
+Code for the paper [Deep Residual Mixture Models](https://arxiv.org/abs/2006.12063). DRMM is a new deep generative model that allows uniquely versatile sample conditioning. Basically, one can **train once, then infer anything from anything**. More precisely, one can sample any variable(s) conditioned on any other variable(s) and/or additional priors and constraints. For example, the model can do:
 
 * *Image completion*: sample pixels conditional on other pixels
 * *Movement planning*: sample movement trajectories conditional on obstacles and target states
