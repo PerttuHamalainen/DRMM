@@ -21,7 +21,7 @@ The following tutorials should get one started. To use DRMM, you only need to ad
 
 
 ## Tutorial 2: Movement planning (sequential data)
-[Tutorial_Sequential.py](Tutorial_Sequential.py) shows how to train with random movement sequences and sample new sequences so that the agent avoids obstacles and goes through desired movement states at desired times. For simple visualization, we use an "air jumping" dynamics model similar to the game Flappy Bird.
+[Tutorial_Sequential.py](Tutorial_Sequential.py) shows how to train with random movement sequences and sample new sequences so that the agent avoids obstacles and goes through desired movement states at desired times. The training trajectories are arrays of shape ```[seq_length_steps,num_state_vars]```, and to make a sampled trajectory go through a desired state at step ```t```, we simply mark ```[t,:]``` as the conditioning variables. For simple visualization, we use an "air jumping" dynamics model similar to the game Flappy Bird.
 
 ![Sampling movement trajectories](./images/tutorial_sequential_FlappyBird.png)
 
