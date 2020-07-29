@@ -22,23 +22,16 @@ subplotSize=3.5
 #Training parameters
 nIter=50000                 #Number of training iterations (minibatches). Set this to a higher value, e.g, 200000 for higher quality results.
 nBatch=imageGridSize**2     #Training minibatch size
-dataset="MNIST"             #Tensorflow dataset, e.g., "MNIST" or "CIFAR10"
-modelFileName="trainedmodels/tutorial_{}".format(dataset)
+modelFileName="trainedmodels/tutorial_MNIST"
 train=not os.path.isfile(modelFileName+".index")   #by default, we do not train again if saved model found. To force retraining, set train=True
 
 #Inference parameters
 nSampleBatch=256
 
 #Load MNIST data
-tfData = input_data.read_data_sets("{}_data/".format(dataset), one_hot=True)
-if dataset=="MNIST":
-    RESO=28
-    CHANNELS=1
-elif dataset=="CIFAR10":
-    RESO=32
-    CHANNELS=3
-else:
-    raise Exception("Unsupported dataset")
+tfData = input_data.read_data_sets("MNIST_data/", one_hot=True)
+RESO=28
+CHANNELS=1
 
 #Helper for querying a batch of training images, reshaped to [nBatch,width,height,channels]
 def getDataBatch(nBatch):
