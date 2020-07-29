@@ -1,18 +1,20 @@
 # Deep Residual Mixture Models
 ![Visualizing DRMM samples and density estimates with 2D data](./images/toydata.png)
 
-Code for the paper [Deep Residual Mixture Models](https://arxiv.org/abs/2006.12063). DRMM is a deep generative model that allows uniquely versatile sample conditioning. Basically, one can **train once, then infer anything from anything**. More precisely, one can sample any variable(s) conditioned on any other variable(s) and/or additional priors and constraints. For example, the model can do:
+Code for the paper [Deep Residual Mixture Models](https://arxiv.org/abs/2006.12063). DRMM is a deep generative model that allows uniquely versatile sample conditioning. Basically, one can **train once, then infer anything from anything**. More precisely, one can sample any variable(s) conditioned on any other variable(s) and/or additional priors and constraints. This is useful for **interactive machine learning**, allowing a user to adjust the sampling without retraining the model. In contrast, common generative models like GANs and VAEs require one to specify the conditioning variables during training.
 
-* *Image completion*: Train with images, then sample pixels conditional on other pixels
-* *Movement planning*: Train with random movement trajectories, then sample trajectories conditional on obstacles and one or more target states
-* *Constrained inverse kinematics*: Train with random body poses, then sample joint angles based on any number of goals and inequalities, e.g., hand reaching for a target while head being below some obstacle.
+For example, a DRMM can do:
 
-As shown in the figure above, the model can also do density estimation, and the number of modeled density modes grows exponentially with depth (in a best-case scenario with suitably self-similar data). This emerges from stacking elementary mixture model layers with novel residual skip-connections and latent variable augmentation.  
+* *Image completion/inpainting*: Train with images, then sample pixels conditional on other pixels.
+* *Movement planning*: Train with random movement trajectories, sample trajectories conditional on obstacles and one or more target states, e.g., animation keyframes.
+* *Constrained inverse kinematics*: Train with random body poses, sample joint angles based on any number of goals and inequalities, e.g., hand reaching for a target while head being below some obstacle.
 
-The following tutorials should get you started. To use DRMM, you only need to add a single Python file to your project: [DRMM.py](DRMM.py).
+As shown in the figure above, a DRMM also does density estimation, and the number of modeled density modes grows exponentially with depth (in a best-case scenario with suitably self-similar data like the Sierpinski triangle). This emerges from stacking elementary mixture model layers with novel residual skip-connections and latent variable augmentation.  
+
+The following tutorials should get one started. To use DRMM, you only need to add a single Python file to your project: [DRMM.py](DRMM.py).
 
 ## Tutorial 1: 2D data
-[Tutorial_Swissroll.py](Tutorial_Swissroll.py) showcases all supported priors and constraints with simple 2D data that is easy to visualize. To run in browser, open this [Colab Notebook](https://colab.research.google.com/github/PerttuHamalainen/DRMM/blob/master/Tutorial_Swissroll.ipynb).
+[Tutorial_Swissroll.py](Tutorial_Swissroll.py) showcases all supported priors and constraints with simple 2D data that is easy to visualize. To run in browser, use this [Colab Notebook](https://colab.research.google.com/github/PerttuHamalainen/DRMM/blob/master/Tutorial_Swissroll.ipynb).
 
 ![Visualizing the various supported ways of conditioning and constraining samples](./images/tutorial_swissroll.png)
 
@@ -25,7 +27,7 @@ The following tutorials should get you started. To use DRMM, you only need to ad
 
 
 ## Tutorial 3: Image completion
-[Tutorial_Images.py](Tutorial_Images.py) shows how to train with images and sample pixels conditional on other pixels. Note that DRMM's quality in this application doesn't (yet) compete with dedicated image completion models such as [DeepFill](https://github.com/JiahuiYu/generative_inpainting).
+[Tutorial_Images.py](Tutorial_Images.py) shows how to train with images and sample unknown (masked) pixels. Note that DRMM's quality in this application doesn't (yet) compete with dedicated image completion models such as [DeepFill](https://github.com/JiahuiYu/generative_inpainting).
 
 ![Image completion](./images/tutorial_images.png)
 
