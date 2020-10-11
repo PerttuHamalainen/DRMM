@@ -2,19 +2,19 @@ import numpy as np
 import random
 import os
 import copy
-import matplotlib.pyplot as pp
 import tensorflow as tf
 import itertools
 
 #Parameters that one may try to adjust
 regularization=0.01             #\alpha in the paper
-UnetSkipStrength=0.333          #\alpha_{skip}
+UnetSkipStrength=1.0/3.0          #\alpha_f
 epsilon=1e-8                    #\epsilon in the paper
-bwdTruncation=0.02              #\alpha_t in the paper
-fwdTruncation=0.05              #similar to bwdTruncation but applied to the forward pass membership distributions (Added after submitting the paper, seems to slightly reduce off-distribution outlier samples)
-outlierLossThreshold=None       #If not None, we ignore training samples with loss values larger than mean + stdev*outlierLossThreshold
+bwdTruncation=0.02              #\alpha_t in the paper, for backward sampling
+fwdTruncation=0.05              #\alpha_t in the paper, for forward sampling
+sigmaType="scalar"            #The paper uses scalar sigma (component covariance) for simplicity, but the code now supports per-variable sigma, i.e., diagonal covariance
 
 #Parameters that should not be touched. 
+outlierLossThreshold=None       			#If not None, we ignore training samples with loss values larger than mean + stdev*outlierLossThreshold
 arrayMarginalMode="elementwise"             #"global": a single w_k shared by all patch DRMMs, "elementwise": the w_k not shared
 dataDependentInitializationMode="normal"    #Defines how components are initialized based on an initial batch of data. "normal" is the default, i.e., randomizing the means from a diagonal Gaussian approximation of the input   
 gradStopStrength=1.0                        #in range 0...1, defines the strength of gradient stopping between layers
@@ -24,7 +24,6 @@ addLastLayerResidualNoise=False             #A value True is only used for the p
 modifiedEStep=True                          #A value of False is only used for comparison in a paper image.
 useBwdCorrection=True                       #Whether to learn and use a simple bias correction term for the backward samping. (Added after submitting the paper. Will be documented either in a paper supplemental or a revised paper, depending on current round of review results.)
 averageSkipConnections=True                 #Whether to use averaged or additive encoder-decoder skip-connections. If bwd sampling perfectly reconstructs the fwd pass distributions, averaging produces unbiased results.
-
 
 
 #Helper: (partial) gradient stop.
@@ -301,12 +300,14 @@ def streamFeedDict(stream:DataStream,nSamples=None,feed:DataIn=None):
             for i in range(len(feed.ieqs)):
                 assert("a" in feed.ieqs[i])
                 assert("b" in feed.ieqs[i])
-                result[stream.ieqConstraints[i].a]=expandAndReshape(feed.ieqs[i]["a"],sampleShape) #np.expand_dims(feed.ieqs[i]["a"], axis=0)
-                result[stream.ieqConstraints[i].b]=expandAndReshape(feed.ieqs[i]["b"],scalarShape)
+                aNorm=np.linalg.norm(feed.ieqs[i]["a"])  #to simplify the computations, we make sure that the constraint is specified in normalized form
+                result[stream.ieqConstraints[i].a]=expandAndReshape(feed.ieqs[i]["a"]/aNorm,sampleShape) #np.expand_dims(feed.ieqs[i]["a"], axis=0)
+                result[stream.ieqConstraints[i].b]=expandAndReshape(feed.ieqs[i]["b"]/aNorm,scalarShape)
                 if "weight" in feed.ieqs[i]:
                     result[stream.ieqConstraints[i].weight]=feed.ieqs[i]["weight"]
                 else:
                     result[stream.ieqConstraints[i].weight]=1.0
+
     else:
         #if the stream does not have placeholder tensors for the inequalities, the feed should not try to specify their values
         assert(feed.ieqs is None)
@@ -372,6 +373,14 @@ def discretePdfTruncate(pdf,truncation):
     pdf=tf.nn.relu(tf.sign(pdf-threshold))*pdf
     pdf/=tf.reduce_sum(pdf,axis=-1,keepdims=True)
     return pdf
+
+def discreteLogPdfTruncate(pdf,truncation):
+    if truncation is None:
+        return pdf
+    threshold=tf.reduce_max(pdf,axis=-1,keepdims=True)-tf.log(truncation)
+    pdf=pdf-1e10*tf.nn.relu(tf.sign(pdf-threshold))
+    return pdf
+
 
 def logPdfTruncate(pdf,truncation):
     truncated=discretePdfTruncate(tf.nn.softmax(pdf),truncation)
@@ -534,7 +543,7 @@ class LayerStack(Layer):
                     if addLastLayerResidualNoise:
                         assert(self.numInputs==1 and self.inputs[0].type=="continuous") #the residual noise is only for the paper's visualization, limited to a single continuous input stream
                         residualSd=tf.sqrt(tf.exp(layer.centroidLogVars[0]))
-                        residualNoise=tf.random_normal(tf.shape(noisySample),mean=0,stddev=residualSd)
+                        residualNoise=tf.random_normal(tf.shape(noisySamples[0]),mean=0,stddev=residualSd)
                         noisySamples[0]+=residualNoise
                     self.layerSamples.append(noisySamples)
             self.samples=samples
@@ -707,7 +716,14 @@ class RMM(Layer):
                 self.nParameters+=M*N
                 self.centroids.append(centroids)
                 self.variables.append(centroids)
-                centroidLogVar=tf.Variable(initial_value=np.log(initialSdScale/np.power(N,1.0/M)),dtype=tf.float32,trainable=True,name='logvar_{}'.format(inputIdx))
+                if sigmaType=="scalar":
+                    centroidLogVar=tf.Variable(initial_value=np.log(initialSdScale/np.power(N,1.0/M)),dtype=tf.float32,trainable=True,name='logvar_{}'.format(inputIdx))
+                elif sigmaType=="diagonal":
+                    centroidLogVar = tf.Variable(initial_value=np.log(initialSdScale / np.power(N, 1.0 / M))*np.ones([1,M]),
+                                                 dtype=tf.float32, trainable=True, name='logvar_{}'.format(inputIdx))
+                else:
+                    raise Exception("unknown sigma type: {}".format(sigmaType))
+
                 self.nParameters+=1
                 self.variables.append(centroidLogVar)
                 self.centroidLogVars.append(centroidLogVar)
@@ -781,7 +797,7 @@ class RMM(Layer):
                 if mode=="init":
                     inputToGatherFrom=input
                     inputMean=tf.reduce_mean(inputToGatherFrom,axis=0,keepdims=True)
-                    inputVar=tf.reduce_mean(tf.square(inputToGatherFrom-inputMean),axis=0)
+                    inputVar=tf.reduce_mean(tf.square(inputToGatherFrom-inputMean),axis=0,keepdims=True)
                     inputSd=tf.sqrt(inputVar)
                     if dataDependentInitializationMode=="select":
                         #Assign class prototypes to randomly selected input samples.
@@ -802,9 +818,14 @@ class RMM(Layer):
                     #Init centroid stdevs proportional to average distances between the centroids, assuming uniform distribution
                     #With 1D data, we simply divide the sd of data by the number of classes. In higher dimensions,
                     #the distance decreases much more slowly with the number of classes, as more centroids are needed to fill the space.
-                    inputVar=tf.reduce_mean(inputVar)
-                    inputSd=tf.sqrt(inputVar)
-                    initSd=(initialSdScale*inputSd)/np.power(N,1.0/M)
+                    if sigmaType=="scalar":
+                        inputVar = tf.reduce_mean(inputVar)
+                        inputSd = tf.sqrt(inputVar)
+                        initSd=(initialSdScale*inputSd)/np.power(N,1.0/M)
+                    elif sigmaType=="diagonal":
+                        initSd=initialSdScale * inputSd
+                    else:
+                        raise Exception("Unknown sigma type: {}".format(sigmaType))
                     centroidLogvar=tf.assign(centroidLogVar,tf.log(tf.square(initSd)))
 
                 #The membership computation needs both log variances and variances
@@ -813,22 +834,24 @@ class RMM(Layer):
 
                 #membership log-probabilities, resulting in an batchSize-by-N tensor
                 #logp of diagonal gaussian: -0.5*[tf.square(x-mean)/var+logVar]
-                streamLogMemberships=-0.5*(sqMahalanobisDistances(input,centroids,centroidSd,mask)+tf.reduce_sum(mask,axis=-1,keepdims=True)*centroidLogVar)
+                streamLogMemberships=-0.5*(sqMahalanobisDistances(input,centroids,centroidSd,mask)+tf.reduce_sum(mask*centroidLogVar,axis=-1,keepdims=True))
 
                 '''
-                Handle inequality constraints of type a'x+b=a'x+a'ab=a'(x+ab)>0
+                Handle inequality constraints of type a'x+b > 0,
                 i.e., defining a half-space of valid x on one side of a constraint hyperplane.
                 We integrate the Gaussian pdf of each mixture component over the half-space,
                 and use that as a membership probability multiplier. In other words, the multiplier equals the
                 probability mass within the valid half-space
-                Simplification: As each component is isotropic, and a'x+b is the distance from the hyperplane,
+                Simplification: As each component is isotropic, and a'x+b is the distance from the hyperplane (we assume norm(a)=1, which is ensured by streamFeedDict()),
                 positive distances indicating valid x, we only need to compute p=(a'mu+b)/sigma and integrate a
                 standard 1D Gaussian from -inf to p, which equals the CDF of standard Gaussian at p, i.e.,
                 0.5*(1+erf(p/sqrt(2))
                 '''
                 if mode=="sample_fwd": #only consider the constraints during inference
                     for c in inputs[inputIdx].ieqConstraints:
-                        p=(tf.tensordot(c.a,centroids,[-1,-1])+c.b)/centroidSd
+                        if sigmaType!="scalar":
+                            print("WARNING: use of the a'x+b>0 inequalities is inaccurate with non-scalar sigma")
+                        p=(tf.tensordot(c.a,centroids,[-1,-1])+c.b)/tf.sqrt(tf.reduce_mean(centroidVar))  #take mean to approximate if non-scalar sigma
                         cdf=0.5*(1.0+tf.erf(p/tf.sqrt(2.0)))
                         streamLogMemberships+=c.weight*tf.log(cdf+epsilon)
 
@@ -918,12 +941,15 @@ class RMM(Layer):
 
 
         #density estimation
+        #logM=discreteLogPdfTruncate(self.mStepLogMemberships,fwdTruncation)
         logM=self.mStepLogMemberships
-        p=tf.reduce_sum(tf.exp(logM-tf.reduce_max(logM)),axis=-1)  
+        p=tf.reduce_sum(tf.exp(logM-tf.reduce_max(logM)),axis=-1)  #we return unnormalized densities over the batch to prevent underflows  
+        #p=tf.reduce_sum(tf.exp(logM),axis=-1)  
         self.p=tf.reshape(p,[-1,1])
         self.logp=tf.log(self.p)
 
         #density estimation only based on non-latent memberships (for DRMMBlockHierarchy, which discards the non-latent input stream residuals, assuming that they contain no information)
+        #logM=discreteLogPdfTruncate(self.nonLatentLogMemberships,fwdTruncation)
         logM=self.nonLatentLogMemberships
         p=tf.reduce_sum(tf.exp(logM-tf.reduce_max(logM)),axis=-1)  
         self.nonLatentP=tf.reshape(p,[-1,1])
@@ -1142,7 +1168,7 @@ class RMM(Layer):
 
  
 class DRMM(LayerStack):
-    def __init__(self,sess,nLayers,nComponentsPerLayer,inputs,initialLearningRate=0.001,finalEStepPrecision=1.0,useBwdSampling=False,train=True):
+    def __init__(self,sess,nLayers,nComponentsPerLayer,inputs,initialLearningRate=0.001,finalEStepPrecision=1.0,useBwdSampling=False,train=True,initialEStepPrecision=0.0):
         self.sess=sess
         if type(inputs) is DataStream:
             inputs=[inputs]  #everything below expects a list of DataStream objects     
@@ -1152,7 +1178,7 @@ class DRMM(LayerStack):
         if train:
             self.trainingPhase=tf.Variable(dtype=tf.float32,initial_value=0,trainable=False)
             thresholdedPhase=0.5+0.5*tf.tanh(20.0*(self.trainingPhase-1.0/2.0))
-            self.precisionRho=finalEStepPrecision*thresholdedPhase 
+            self.precisionRho=initialEStepPrecision+(finalEStepPrecision-initialEStepPrecision)*thresholdedPhase         
             decayingPhase=tf.clip_by_value(tf.square(2.0-2.0*self.trainingPhase),0,1)
             self.learningRate=initialLearningRate*decayingPhase  #first keep constant, start decaying quadratically in the middle
         for i in range(nLayers):

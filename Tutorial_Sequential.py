@@ -1,8 +1,8 @@
 '''
 
-This tutorial trains a hierarchical DRMM with movement trajectories (state and action sequences produced by dynamics simulation).
+This tutorial trains a hierarchical DRMM with movement trajectories (state sequences produced by dynamics simulation).
 
-After training, we sample and visualize trajectories conditional on vertical positions at specific timesteps.
+After training, we sample and visualize trajectories conditional on vertical positions at specific timesteps and obstacles defined as box constraints for the vertical positions
 
 '''
 
@@ -46,7 +46,7 @@ def getDataBatch(nBatch):
     vy=np.random.uniform(-0.05,0.05,size=nBatch)
     gravity=0
     for t in range(T):
-        #store state and action for this timestep
+        #store state for this timestep
         data[:,t,0]=y
         data[:,t,1]=vy
 

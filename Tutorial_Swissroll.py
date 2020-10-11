@@ -1,8 +1,7 @@
 '''
 
-Trains a DRMM with 2D Swiss roll data, and visualizes the samples with different model depths.
+Trains a DRMM with 2D Swiss roll data and visualizes samples using different priors and constraints
 
-We also demonstrate how to use a Gaussian prior, box constraints, and linear inequality constraints.
 
 '''
 
@@ -19,7 +18,7 @@ from DRMM import dataStream,DRMM,DataIn
 
 #Training parameters
 dataDim=2           #This example uses simple 2D data
-nIter=20000         #Number of training iterations (minibatch EM steps)
+nIter=40000         #Number of training iterations (minibatch EM steps)
 nBatch=64           #Training minibatch size
 nTrainingData=1000  #Synthetic training dataset size
 
@@ -29,7 +28,7 @@ nComponentsPerLayer=16
 nLayers=4
 
 #Inference parameters.  
-prunedPortion=0.01  #In range 0...1, amount of least probable samples to prune.
+prunedPortion=0.0  #Optional: In range 0...1, amount of least probable samples to prune
 
 
 #Create Swiss roll data
