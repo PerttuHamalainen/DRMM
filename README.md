@@ -49,7 +49,7 @@ If you use DRMM, please cite the paper:
 ```
 @article{hamalainen2020deep,
   title={Deep Residual Mixture Models},
-  author={H{\"a}m{\"a}l{\"a}inen, Perttu and Solin, Arno},
+  author={H{\"a}m{\"a}l{\"a}inen, Perttu and Saloheimo, Tuure and Solin, Arno},
   journal={arXiv preprint arXiv:2006.12063},
   year={2020}
 }
