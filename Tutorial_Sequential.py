@@ -1,8 +1,8 @@
 '''
 
-This tutorial trains a hierarchical DRMM with movement trajectories (state sequences produced by dynamics simulation).
+This tutorial trains a hierarchical DRMM with movement trajectories (state and action sequences produced by dynamics simulation).
 
-After training, we sample and visualize trajectories conditional on vertical positions at specific timesteps and obstacles defined as box constraints for the vertical positions
+After training, we sample and visualize trajectories conditional on vertical positions at specific timesteps.
 
 '''
 
@@ -15,6 +15,14 @@ import tensorflow as tf
 import DRMM
 from DRMM import DRMMBlockHierarchy,dataStream,DataIn
 import time
+from matplotlib import rc
+
+#Uncomment these to use LaTeX fonts (as used for the paper)
+#rc('text', usetex=True)
+#rc('font',**{'family':'serif','serif':['Times'],'size':12})
+
+#Plotting parameters
+twoColumnFormat=True
 
 #Dynamics parameters
 dynamicsType="FlappyBird"  #either "FlappyBird" or "Balloon"
@@ -46,7 +54,7 @@ def getDataBatch(nBatch):
     vy=np.random.uniform(-0.05,0.05,size=nBatch)
     gravity=0
     for t in range(T):
-        #store state for this timestep
+        #store state and action for this timestep
         data[:,t,0]=y
         data[:,t,1]=vy
 
@@ -83,16 +91,31 @@ def getDataBatch(nBatch):
 
 #PLOT 1: visualize training data
 nPlots=4
+def subplot(idx):
+    if twoColumnFormat:
+        pp.subplot(2,nPlots//2,idx)
+    else:
+        pp.subplot(1,nPlots,idx)
+def hideticks():
+    ax=pp.gca()
+    pp.setp(ax.get_xticklabels(), visible=False)
+    pp.setp(ax.get_yticklabels(), visible=False)
+    ax.tick_params(axis='both', which='both', length=0)
+
 def plotTrajectories(trajectories,color='b',alpha=1.0):
     if len(trajectories.shape)==2:
         trajectories=np.expand_dims(trajectories,axis=0)
     for trajectoryIndex in range(trajectories.shape[0]):
         pp.plot(np.arange(0,T),trajectories[trajectoryIndex,:,0],color=color,alpha=alpha)
-pp.figure(1,figsize=[figScale*nPlots,figScale],tight_layout=True)
-pp.subplot(1,nPlots,1)
+if twoColumnFormat:
+    pp.figure(1,figsize=[figScale*2,figScale*2],tight_layout=True)
+else:
+    pp.figure(1,figsize=[figScale*nPlots,figScale],tight_layout=True)
+subplot(1)
 plotTrajectories(getDataBatch(nPlotted))
 pp.title("Training data")
 pp.ylim(-0.05,1.05)
+hideticks()
 pp.pause(0.001)
 
 #Init tf
@@ -108,13 +131,12 @@ The last DRMM block models the joint distribution of all the segments.
 model=DRMMBlockHierarchy(sess,
                          inputs=dataStream(dataType="continuous",shape=[None,T,dataDim],useGaussianPrior=True,useBoxConstraints=True),
                          blockDefs=[
-                         {"nClasses":256,"nLayers":2,"kernelSize":7,"stride":2},   #input seq. length 32, output length 16
-                         {"nClasses":256,"nLayers":3,"kernelSize":7,"stride":2},   #in 16, out 8
+                         {"nClasses":64,"nLayers":2,"kernelSize":7,"stride":2},   #input seq. length 32, output length 16
+                         {"nClasses":64,"nLayers":3,"kernelSize":7,"stride":2},   #in 16, out 8
                          ],
-                         lastBlockClasses=256,
+                         lastBlockClasses=64,
                          lastBlockLayers=4,
-                         train=train,    #if False, optimization ops will not be created, which saves some time
-                         initialLearningRate=0.005)
+                         initialLearningRate=0.002)
 print("Total model parameters: ",model.nParameters)
 
 #Train or load model
@@ -145,11 +167,12 @@ else:
 samples=model.sample(nSampleBatch)
 
 #Plot
-pp.subplot(1,nPlots,2)
+subplot(2)
 pp.cla()
 plotTrajectories(samples[:nPlotted])
 pp.title("Unconditional samples")
 pp.ylim(-0.05,1.05)
+hideticks()
 pp.pause(0.001)
 
 
@@ -174,12 +197,13 @@ samples=model.sample(inputs=DataIn(data=samplingInputData,mask=samplingMask),
 
 
 #Plot
-pp.subplot(1,nPlots,3)
+subplot(3)
 plotTrajectories(samples[:nPlotted],alpha=0.3)
 plotTrajectories(samples[0])
 pp.scatter(waypointTimesteps,waypointY,color="gray",zorder=10)
 pp.title("Samples conditioned\non waypoints")
 pp.ylim(-0.05,1.05)
+hideticks()
 
 
 
@@ -222,18 +246,20 @@ samples=model.sample(inputs=DataIn(data=samplingInputData,
                      sorted=True)
 
 #Plot samples
-pp.subplot(1,nPlots,4)
+subplot(4)
 pp.cla()
 plotTrajectories(samples[:nPlotted],alpha=0.3)
 plotTrajectories(samples[0])
 pp.scatter(waypointTimesteps,waypointY,color="gray",zorder=10)
-pp.title("Waypoints &\nbox constraints")
+pp.title("Samples conditioned on\nwaypoints and obstacles")
 pp.ylim(-0.05,1.05)
 
 #Plot the min and max values
 pp.plot(np.arange(0,T),minValues[:,0],color="black")
 pp.plot(np.arange(0,T),maxValues[:,0],color="black")
+hideticks()
 
-pp.savefig("images/tutorial_sequential_{}.png".format(dynamicsType))
-
+pp.savefig("images/{}.png".format(dynamicsType),dpi=200)
+from utils import PNGCrop
+PNGCrop.crop("images/{}.png".format(dynamicsType))
 pp.show()

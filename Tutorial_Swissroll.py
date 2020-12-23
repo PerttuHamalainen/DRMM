@@ -1,7 +1,8 @@
 '''
 
-Trains a DRMM with 2D Swiss roll data and visualizes samples using different priors and constraints
+Trains a DRMM with 2D Swiss roll data, and visualizes the samples with different model depths.
 
+We also demonstrate how to use a Gaussian prior, box constraints, and linear inequality constraints.
 
 '''
 
@@ -20,20 +21,21 @@ from DRMM import dataStream,DRMM,DataIn
 dataDim=2           #This example uses simple 2D data
 nIter=40000         #Number of training iterations (minibatch EM steps)
 nBatch=64           #Training minibatch size
-nTrainingData=1000  #Synthetic training dataset size
 
 #Model parameters
-bwdSampling=False  #Set to true to test backward sampling instead of forward sampling
+bwdSampling=False   #Set to true to test backward sampling instead of forward sampling
 nComponentsPerLayer=16
 nLayers=4
 
-#Inference parameters.  
-prunedPortion=0.0  #Optional: In range 0...1, amount of least probable samples to prune
-
-
 #Create Swiss roll data
-angles=np.reshape(np.linspace(0,4.0*np.pi,nTrainingData),[-1,1])
-data=0.5*angles*np.concatenate([np.sin(angles),np.cos(angles)],axis=1)
+x=[]
+maxAngle=4.0*np.pi
+for angle in np.arange(0,maxAngle,0.001):
+    #swiss roll
+    p=angle/maxAngle
+    if np.random.uniform(0,1)<p:
+        x.append(np.reshape(0.5*angle*np.array([np.sin(angle),np.cos(angle)]),[1,2]))
+data=np.concatenate(x)
 
 #A helper function for extracting a random data batch
 def getDataBatch(nBatch):   
@@ -74,7 +76,7 @@ for i in range(nIter):
 
     #Print progress
     if i%100==0 or i==nIter-1:
-        print("Iteration {}/{}, Loss {:.3f}, learning rate {:.6f}, precision {:.3f}".format(i,nIter,info["loss"],info["lr"],info["rho"]),end="\r")
+        print("Iteration {}/{}, phase {:.3f} Loss {:.3f}, learning rate {:.6f}, precision {:.3f}".format(i,nIter,i/nIter,info["loss"],info["lr"],info["rho"]),end="\r")
 
     #Visualize progress
     if i%1000==0 or i==nIter-1:
@@ -110,9 +112,7 @@ for i in range(nIter):
         #Generate and plot conditional samples. 
         #In this case, we need to feed in the input data and known variables mask.
         #nSamples is not needed, because it is specified by the data shape.
-        samples=model.sample(inputs=DataIn(data=inputData,mask=mask),sorted=True)
-        if prunedPortion>0:
-            samples=samples[:int(nCond*(1.0-prunedPortion))] 
+        samples=model.sample(inputs=DataIn(data=inputData,mask=mask))
 
         pp.subplot(1,5,2)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)
@@ -126,9 +126,7 @@ for i in range(nIter):
         #The inequalities are defined as a list of dictionaries. 
         #The number of dictionaries must be less than equal to the maxInequalities parameter passed to the model constructor.
         ieqs=[{"a":np.array([1.0,0.2]),"b":2.0},{"a":np.array([-1.0,-0.2]),"b":2.0}]
-        samples=model.sample(nSamples=nCond,inputs=DataIn(ieqs=ieqs),sorted=True)
-        if prunedPortion>0:
-            samples=samples[:int(nCond*(1.0-prunedPortion))] 
+        samples=model.sample(nSamples=nCond,inputs=DataIn(ieqs=ieqs))
 
         pp.subplot(1,5,3)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)
@@ -147,9 +145,7 @@ for i in range(nIter):
         #Generate and plot samples with box constraints, i.e., limits for maximum and minimum values
         minValues=np.array([-5.0,-4.0])
         maxValues=np.array([3.0,4.0])
-        samples=model.sample(nSamples=nCond,inputs=DataIn(minValues=minValues,maxValues=maxValues),sorted=True)
-        if prunedPortion>0:
-            samples=samples[:int(nCond*(1.0-prunedPortion))] 
+        samples=model.sample(nSamples=nCond,inputs=DataIn(minValues=minValues,maxValues=maxValues))
 
         pp.subplot(1,5,4)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)
@@ -161,9 +157,7 @@ for i in range(nIter):
         #Generate and plot samples with a Gaussian prior        
         priorMean=np.array([0.0,0.0])
         priorSd=np.array([3.0,1.0])
-        samples=model.sample(nSamples=nCond,inputs=DataIn(priorMean=priorMean,priorSd=priorSd),sorted=True)
-        if prunedPortion>0:
-            samples=samples[:int(nCond*(1.0-prunedPortion))] 
+        samples=model.sample(nSamples=nCond,inputs=DataIn(priorMean=priorMean,priorSd=priorSd))
 
         pp.subplot(1,5,5)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)

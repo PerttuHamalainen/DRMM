@@ -13,15 +13,19 @@ import tensorflow as tf
 from DRMM import DRMMBlockHierarchy,dataStream,DataIn
 from tensorflow.examples.tutorials.mnist import input_data
 import time
+from matplotlib import rc
 
+#Uncomment these to use LaTeX fonts (as used for the paper)
+#rc('text', usetex=True)
+#rc('font',**{'family':'serif','serif':['Times'],'size':12})
 
 #Plotting parameters
 imageGridSize=8
 subplotSize=3.5   
 
 #Training parameters
-nIter=50000                 #Number of training iterations (minibatches). Set this to a higher value, e.g, 200000 for higher quality results.
-nBatch=imageGridSize**2     #Training minibatch size
+nIter=100000                #Number of training iterations (minibatches). Set this to a higher value, e.g, 200000 for higher quality results.
+nBatch=64                   #Training minibatch size
 modelFileName="trainedmodels/tutorial_MNIST"
 train=not os.path.isfile(modelFileName+".index")   #by default, we do not train again if saved model found. To force retraining, set train=True
 
@@ -85,13 +89,16 @@ The last DRMM block models the joint distribution of the latents produced by the
 model=DRMMBlockHierarchy(sess,
                          inputs=dataStream("continuous",shape=[None,RESO,RESO,CHANNELS]),
                          blockDefs=[
-                         {"nClasses":128,"nLayers":1,"kernelSize":[3,3],"stride":[2,2]},   #in 28x28, out 14x14
-                         {"nClasses":128,"nLayers":2,"kernelSize":[3,3],"stride":[2,2]},   #in 14x14, out 7x7
+                         #block that extracts and models 3x3 patches, in 28x28, out 14x14
+                         {"nClasses":64,"nLayers":2,"kernelSize":[3,3],"stride":[2,2]},   
+                         #block that extracts and models 3x3 patches, in 14x14, out 7x7
+                         {"nClasses":64,"nLayers":3,"kernelSize":[3,3],"stride":[2,2]},   #in 14x14, out 7x7
                          ],
-                         lastBlockClasses=128,
+                         #the last global DRMM that models 7x7 input images flattened to vectors 
+                         lastBlockClasses=64,
                          lastBlockLayers=4,
-                         train=train,
-                         initialLearningRate=0.005)
+                         #learning rate, which will be decayed using the default curriculum
+                         initialLearningRate=0.002)
 print("Total model parameters: ",model.nParameters)
 
 #Train or load model
@@ -148,21 +155,23 @@ pp.title("Unconditional samples")
 #PLOT 3: Visualize samples conditioned on known pixels
 testImages=getTestDataBatch(nBatch)
 
-#Visualize the unknown pixels with intensity 0.5
-testImages[:,RESO//2:]=0.5 
 
 #Initialize samples to zero
 samples=np.zeros_like(testImages)
 
 #Loop over test images (one row of the image grid) and generate samples
 for i in range(imageGridSize):
+    knownRows=RESO//2-imageGridSize+i
+    #Visualize the unknown pixels with intensity 0.5
+    testImages[i,knownRows:]=0.5 
+
     #Image sampling uses backward sampling, which requires the same conditioning info for all samples
     #Thus, we make one sampling input batch of each test image
     testData=np.repeat(testImages[i:i+1],axis=0,repeats=nSampleBatch)
 
     #Set the mask to zero for the unknown pixels
     testMask=np.ones_like(testData)
-    testMask[:,RESO//2:]=0.0
+    testMask[:,knownRows:]=0.0
 
     #Sample
     tempSamples=model.sample(inputs=DataIn(data=testData,mask=testMask)) 
@@ -178,5 +187,7 @@ pp.subplot(1,3,3)
 pp.cla()
 showImages(samples)
 pp.title("Conditional samples")
-pp.savefig("images/tutorial_images.png")
+pp.savefig("images/MNIST.png",dpi=200)
+from utils import PNGCrop
+PNGCrop.crop("images/MNIST.png")
 pp.show()
