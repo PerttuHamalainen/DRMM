@@ -29,7 +29,7 @@ dynamicsType="FlappyBird"  #either "FlappyBird" or "Balloon"
 
 #Training parameters
 nIter=100000            #Number of training iterations (minibatches). Set this to a higher value, e.g., 200000 for better quality results
-nBatch=64              #Training minibatch size
+nBatch=64               #Training minibatch size
 modelFileName="trainedmodels/tutorial_sequential_{}".format(dynamicsType)
 train=not os.path.isfile(modelFileName+".index")   #by default, we do not train again if saved model found. To force retraining, set train=True
 
@@ -131,11 +131,15 @@ The last DRMM block models the joint distribution of all the segments.
 model=DRMMBlockHierarchy(sess,
                          inputs=dataStream(dataType="continuous",shape=[None,T,dataDim],useGaussianPrior=True,useBoxConstraints=True),
                          blockDefs=[
-                         {"nClasses":64,"nLayers":2,"kernelSize":7,"stride":2},   #input seq. length 32, output length 16
-                         {"nClasses":64,"nLayers":3,"kernelSize":7,"stride":2},   #in 16, out 8
+                         #block that models sequence segments of length 7, input seq. length 32, output length 16
+                         {"nClasses":256,"nLayers":2,"kernelSize":7,"stride":2},   
+                         #block that models sequence segments of length 7, input seq. length 16, output length 8
+                         {"nClasses":256,"nLayers":3,"kernelSize":7,"stride":2},  
                          ],
-                         lastBlockClasses=64,
+                         #the last global block that models the sequences of length 8 flattened to vectors
+                         lastBlockClasses=256,
                          lastBlockLayers=4,
+                         #learning rate, which will be decayed to zero using the default curriculum
                          initialLearningRate=0.002)
 print("Total model parameters: ",model.nParameters)
 
@@ -161,6 +165,7 @@ else:
     if not os.path.exists('trainedmodels'):
         os.makedirs('trainedmodels')
     saver.save(sess,modelFileName)
+
 
 #PLOT 2: Visualize unconditional samples
 #Sample
@@ -195,7 +200,6 @@ samples=model.sample(inputs=DataIn(data=samplingInputData,mask=samplingMask),
                      temperature=temperature,
                      sorted=True)
 
-
 #Plot
 subplot(3)
 plotTrajectories(samples[:nPlotted],alpha=0.3)
@@ -204,7 +208,6 @@ pp.scatter(waypointTimesteps,waypointY,color="gray",zorder=10)
 pp.title("Samples conditioned\non waypoints")
 pp.ylim(-0.05,1.05)
 hideticks()
-
 
 
 #PLOT 4: Visualize samples with start and end points and box constraints for y
@@ -234,7 +237,6 @@ minValues[7:12,0]=0.5
 #obstacle to pass under
 maxValues[20:25,0]=0.5
 
-
 #Sample
 samples=model.sample(inputs=DataIn(data=samplingInputData,
                                    mask=samplingMask,
@@ -245,7 +247,8 @@ samples=model.sample(inputs=DataIn(data=samplingInputData,
                      temperature=temperature,
                      sorted=True)
 
-#Plot samples
+#Plot nPlotted first samples of the batch. 
+#Since sorted=True above, these are the ones the model deems the most probable.
 subplot(4)
 pp.cla()
 plotTrajectories(samples[:nPlotted],alpha=0.3)

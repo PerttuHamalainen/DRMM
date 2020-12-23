@@ -1514,7 +1514,6 @@ class DiscardResiduals(Layer):
         #If this is the last layer of a block and this is a training pass, we route the fwd pass outputs backwards after batch-averaging.
         #This is because of the staged training: The bwd bias correction training doesn't depend on the later stages.
         if self.blockLastLayer and mode=="training":
-            print("Looping fwd inputs back to bwd pass for staged training of bwd bias correction")
             return stopStreamGradients(multiStreamBatchAverage(self.inputs),1.0)
         if data is None:
             return None
