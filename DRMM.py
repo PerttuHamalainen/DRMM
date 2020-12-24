@@ -4,6 +4,7 @@ import os
 import copy
 import tensorflow as tf
 import itertools
+from math import ceil
 
 #Parameters that one may try to adjust
 regularization=0.01             #\alpha in the paper
@@ -1643,8 +1644,8 @@ class DRMMBlockHierarchy(LayerStack):
         for b in blockDefs:
             kernelSize=[1,b["kernelSize"],1,1] if sequential else [1,b["kernelSize"][0],b["kernelSize"][1],1]
             stride=[1,b["stride"],1,1] if sequential else [1,b["stride"][0],b["stride"][1],1]
-            width=width//stride[1]
-            height=height//stride[2]
+            width=int(ceil(width/stride[1]))
+            height=int(ceil(height/stride[2]))
             self.add(DRMMBlock2D(width=width,height=height,
                            nComponentsPerLayer=b["nClasses"],
                            nLayers=b["nLayers"],
