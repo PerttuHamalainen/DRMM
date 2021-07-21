@@ -1,56 +1,31 @@
 # Deep Residual Mixture Models
-![Visualizing DRMM samples and density estimates with 2D data](./images/toydata.png)
+![Visualizing DRMM samples and density estimates with 2D data](./readmeimages/toydata.png)
 
-Code for the paper [Deep Residual Mixture Models](https://arxiv.org/abs/2006.12063). DRMM is a deep generative model that allows uniquely versatile sample conditioning. Basically, one can **train once, then infer anything from anything**. More precisely, one can sample any variable(s) conditioned on any other variable(s) and/or additional priors and constraints. This is useful for **interactive machine learning**, allowing a user to adjust the sampling without retraining the model. In contrast, common generative models like GANs and VAEs require one to specify the conditioning variables during training.
-
-For example, a DRMM can do:
-
-* *Image completion/inpainting*: Train with images, then sample pixels conditional on other pixels.
-* *Movement planning*: Train with random movement trajectories, sample trajectories conditional on obstacles and one or more target states, e.g., animation keyframes.
-* *Constrained inverse kinematics*: Train with random body poses, sample joint angles based on any number of goals and inequalities, e.g., hand reaching for a target while head being below some obstacle.
-
-As shown in the figure above, a DRMM also does density estimation, and the number of modeled density modes grows exponentially with depth (in a best-case scenario with suitably self-similar data like the Sierpinski triangle). This emerges from stacking elementary mixture model layers with novel residual skip-connections and latent variable augmentation.  
-
-The following tutorials should get one started. To use DRMM, you only need to add a single Python file to your project: [DRMM.py](DRMM.py).
-
-## Tutorial 1: 2D data
-[Tutorial_Swissroll.py](Tutorial_Swissroll.py) showcases all supported priors and constraints with simple 2D data that is easy to visualize. To run in browser, use this [Colab Notebook](https://colab.research.google.com/github/PerttuHamalainen/DRMM/blob/master/Tutorial_Swissroll.ipynb).
-
-![Visualizing the various supported ways of conditioning and constraining samples](./images/tutorial_swissroll.png)
-
-
-
-## Tutorial 2: Movement planning (sequential data)
-[Tutorial_Sequential.py](Tutorial_Sequential.py) shows how to train with random movement sequences and sample new sequences so that the agent avoids obstacles and goes through desired movement states at desired times. The training trajectories are arrays of shape ```[seq_length_steps,num_state_vars]```, and to make a sampled trajectory go through a desired state at step ```t```, we simply mark ```[t,:]``` as the conditioning variables. For simple visualization, we use an "air jumping" dynamics model similar to the game Flappy Bird.
-
-![Sampling movement trajectories](./images/tutorial_sequential_FlappyBird.png)
-
-
-## Tutorial 3: Image completion
-[Tutorial_Images.py](Tutorial_Images.py) shows how to train with images and sample unknown (masked) pixels. Note that DRMM's quality in this application doesn't (yet) compete with dedicated image completion models such as [DeepFill](https://github.com/JiahuiYu/generative_inpainting).
-
-![Image completion](./images/tutorial_images.png)
-
-The video below shows the same with time-varying known pixels mask:
-
-<a href="http://www.youtube.com/watch?feature=player_embedded&v=rBTFTZCZKZE
-" ><img src="http://img.youtube.com/vi/rBTFTZCZKZE/0.jpg"
-alt="IMAGE ALT TEXT HERE" width="320" /></a>
+Code for the paper [Deep Residual Mixture Models](https://arxiv.org/abs/2006.12063). DRMM is a deep generative model that allows highly versatile sample conditioning. After training once with some dataset, one can sample any variable(s) conditioned on any other variable(s) and/or additional Gaussian priors and inequality constraints. This is useful for **interactive and exploratory machine learning**, allowing a user to adjust the sampling without retraining the model. In contrast, common generative models like GANs and VAEs require one to specify the conditioning variables during training. We demonstrate DRMM in constrained multi-limb inverse kinematics (IK) and controllable generation of animations.
 
 ## Installation
 
-Clone or download the repository. Create and activate a fresh Anaconda Python 3.6 virtual environment and type "pip install -r requirements.txt". NOTE: the code may also work on some other Tensorflow 1 version, but requirements.txt specifies a combination of packages with which we have tested everything.
+Create and activate a fresh Anaconda Python 3.6 virtual environment and type ```pip install -r requirements.txt```.
 
-The code has been tested on Python 3.6.2 and Windows 10 (CPU: Intel Core i7, 16GB, GPU: GTX 1060, 6GB). <!-- except for the Quick! Draw dataset preprocessing (rasterization) code that only works on Linux. On Windows 10, one gets .dll errors that we have not yet managed to sort out.-->
 
-## Citation
-If you use DRMM, please cite the paper:
+The code has been tested on Python 3.6.2 and Windows 10 (CPU: Intel Core i9, 32GB, GPU: GTX 2080, (GB).
+## Tutorial
+To use DRMM, you should only need to add DRMM.py to your project. Note that the file also contains some work-in-progress code not used in this paper submission.
 
-```
-@article{hamalainen2020deep,
-  title={Deep Residual Mixture Models},
-  author={H{\"a}m{\"a}l{\"a}inen, Perttu and Saloheimo, Tuure and Solin, Arno},
-  journal={arXiv preprint arXiv:2006.12063},
-  year={2020}
-}
-```
+[Tutorial_Swissroll.py](Tutorial_Swissroll.py) showcases all supported priors and constraints with simple 2D data that is easy to visualize. The code should be reasonably well commented.
+
+![Visualizing the various supported ways of conditioning and constraining samples](./readmeimages/tutorial_swissroll.png)
+
+
+## Reproducing paper figures and results
+[GenerateAll.py](GenerateAll.py) generates paper figures and results, creating folders for them. Paper figures are saved to the "images" folder, including 10 generations of the IK results with different random seeds. Animation video frames are saved in the "imagetemp" folder. These can be viewed as such or rendered as video using a tool such as ffmpeg.
+
+Use ```python GenerateAll.py --quicktest``` to test everything in about 20 minutes with low-quality training settings.  Without the ```--quicktest``` flag, GenerateAll.py will take about a day to complete.
+
+See the comments in GenerateAll.py for more info. If you want to experiment with the individual scripts like Plot_IK.py without retraining the model, run the scripts without the ```--train``` flag.
+
+## Motion data
+Currently, we have included the Ubisoft LaForge data subset we used in our experiments. A future release will replace this with tools for downloading the whole dataset and preprocessing and training on any subset of motion data sequences.
+
+## Previous versions
+This version, corresponding to paper v3 in arxiv, omits the "backward sampling" examples of the v2 paper. Those were cut because the v3 paper was submitted to a venue with a more strict page limit. The v2 paper's code can be accessed through [this tagged version](https://github.com/PerttuHamalainen/DRMM/releases/tag/arxiv-v2).
