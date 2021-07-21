@@ -19,13 +19,14 @@ from DRMM import dataStream,DRMM,DataIn
 
 #Training parameters
 dataDim=2           #This example uses simple 2D data
-nIter=40000         #Number of training iterations (minibatch EM steps)
+nIter=40000         #Number of training iterations (minibatch Adam steps)
 nBatch=64           #Training minibatch size
+learningRate=0.005  #Initial learning rate, will be annealed to 0 during the 3rd training curriculum stage
 
 #Model parameters
-bwdSampling=False   #Set to true to test backward sampling instead of forward sampling
 nComponentsPerLayer=16
-nLayers=4
+nLayers=3
+prunedPercentage=0 #The percentage of least probable samples to prune before plotting
 
 #Create Swiss roll data
 x=[]
@@ -58,8 +59,7 @@ model=DRMM(sess=sess,
                 nLayers=nLayers,
                 nComponentsPerLayer=nComponentsPerLayer,
                 inputs=inputStream,
-                initialLearningRate=0.005,
-                useBwdSampling=bwdSampling)
+                initialLearningRate=learningRate)
 
 #Initialize
 tf.global_variables_initializer().run(session=sess)
@@ -68,15 +68,16 @@ model.init(getDataBatch(256))  #Data-dependent initialization
 #Optimize
 for i in range(nIter):
     '''
-    The train method performs a single EM step. 
+    The train method performs a single Adam step. 
     The method takes in a batch of data and a training phase variable in range 0...1.
-    The latter is used for sweeping the learning rate and E-step \rho, as described in the paper.
+    The latter is used for managing the curriculum stages.
     '''
     info=model.train(i/nIter,getDataBatch(nBatch))
 
     #Print progress
     if i%100==0 or i==nIter-1:
-        print("Iteration {}/{}, phase {:.3f} Loss {:.3f}, learning rate {:.6f}, precision {:.3f}".format(i,nIter,i/nIter,info["loss"],info["lr"],info["rho"]),end="\r")
+        logp=np.mean(model.getLogP(inputs=DataIn(data=data,mask=np.ones_like(data)))) #evaluate log-likelihood of all data
+        print("\rIteration {}/{}, phase {:.3f} Loss {:.3f}, logp {:.3f} learning rate {:.6f}".format(i,nIter,i/nIter,info["loss"],logp,info["lr"]),end="")
 
     #Visualize progress
     if i%1000==0 or i==nIter-1:
@@ -95,6 +96,7 @@ for i in range(nIter):
 
         #Sample and plot. In unconditional sampling, we only need to specify the number of samples
         samples=model.sample(nSamples=1024)
+        samples=samples[:samples.shape[0]*(100-prunedPercentage)//100]
 
         pp.scatter(samples[:,0],samples[:,1],color='black',label='samples, p(x,y)',marker='.')
         pp.title("Unconditional samples")
@@ -113,6 +115,7 @@ for i in range(nIter):
         #In this case, we need to feed in the input data and known variables mask.
         #nSamples is not needed, because it is specified by the data shape.
         samples=model.sample(inputs=DataIn(data=inputData,mask=mask))
+        samples=samples[:samples.shape[0]*(100-prunedPercentage)//100]
 
         pp.subplot(1,5,2)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)
@@ -127,6 +130,7 @@ for i in range(nIter):
         #The number of dictionaries must be less than equal to the maxInequalities parameter passed to the model constructor.
         ieqs=[{"a":np.array([1.0,0.2]),"b":2.0},{"a":np.array([-1.0,-0.2]),"b":2.0}]
         samples=model.sample(nSamples=nCond,inputs=DataIn(ieqs=ieqs))
+        samples=samples[:samples.shape[0]*(100-prunedPercentage)//100]
 
         pp.subplot(1,5,3)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)
@@ -146,6 +150,7 @@ for i in range(nIter):
         minValues=np.array([-5.0,-4.0])
         maxValues=np.array([3.0,4.0])
         samples=model.sample(nSamples=nCond,inputs=DataIn(minValues=minValues,maxValues=maxValues))
+        samples=samples[:samples.shape[0]*(100-prunedPercentage)//100]
 
         pp.subplot(1,5,4)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)
@@ -154,10 +159,12 @@ for i in range(nIter):
         pp.title("Box constraints")
         setPlotLimits()
 
-        #Generate and plot samples with a Gaussian prior        
+        #Generate and plot samples with a Gaussian prior
+        #The visualized ellipse shows the region within 2 standard deviations from the mean
         priorMean=np.array([0.0,0.0])
         priorSd=np.array([3.0,1.0])
         samples=model.sample(nSamples=nCond,inputs=DataIn(priorMean=priorMean,priorSd=priorSd))
+        samples=samples[:samples.shape[0]*(100-prunedPercentage)//100]
 
         pp.subplot(1,5,5)
         pp.scatter(data[:,0],data[:,1],color='b',marker='.',s=markerSize,zorder=-1)
