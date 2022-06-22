@@ -1,5 +1,5 @@
 tensorflow_gpu==1.15.2
-numpy==1.18.2
+numpy==1.22.0
 scipy==1.4.1
 six
 packaging
